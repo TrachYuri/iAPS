@@ -182,15 +182,28 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
         }
     }
 
+    private func showGlucoseNotification() -> Bool {
+        guard !settingsManager.settings.glucoseNotificationsAlways
+        else { return true }
+        guard let _ = glucoseStorage.alarm,
+              snoozeUntilDate <= Date()
+        else { return false }
+        return true
+    }
+
     private func sendGlucoseNotification() {
-        addAppBadge(glucose: nil)
+        DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+        }
 
         let glucose = glucoseStorage.recent()
-        guard let lastGlucose = glucose.last, let glucoseValue = lastGlucose.glucose else { return }
+        guard let lastGlucose = glucose.last,
+              let glucoseValue = lastGlucose.glucose
+        else { return }
 
-        addAppBadge(glucose: lastGlucose.glucose)
-
-        guard glucoseStorage.alarm != nil || settingsManager.settings.glucoseNotificationsAlways else {
+        guard showGlucoseNotification()
+        else {
+            addAppBadge(glucose: glucoseValue)
             return
         }
 
@@ -210,26 +223,42 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
             }
 
             let delta = glucose.count >= 2 ? glucoseValue - (glucose[glucose.count - 2].glucose ?? 0) : nil
-            let body = self.glucoseText(glucoseValue: glucoseValue, delta: delta, direction: lastGlucose.direction) + self
-                .infoBody()
+            let body = self.glucoseText(
+                glucoseValue: glucoseValue,
+                delta: delta,
+                direction: lastGlucose.direction
+            )
+                + self.infoBody()
 
             if self.snoozeUntilDate > Date() {
                 titles.append(NSLocalizedString("(Snoozed)", comment: "(Snoozed)"))
                 notificationAlarm = false
-            } else {
-                titles.append(body)
-                let content = UNMutableNotificationContent()
-                content.title = titles.joined(separator: " ")
-                content.body = body
-
-                if notificationAlarm {
-                    self.playSoundIfNeeded()
-                    content.sound = .default
-                    content.userInfo[NotificationAction.key] = NotificationAction.snooze.rawValue
-                }
-
-                self.addRequest(identifier: .glucocoseNotification, content: content, deleteOld: true)
+                self.addAppBadge(glucose: glucoseValue)
             }
+            let content = UNMutableNotificationContent()
+            content.title = titles.joined(separator: " ")
+            content.body = body
+
+            var badge: NSNumber?
+            if self.settingsManager.settings.glucoseBadge {
+                if self.settingsManager.settings.units == .mmolL {
+                    badge = glucoseValue.asRoundedMmolL as NSNumber
+                } else {
+                    badge = glucoseValue as NSNumber
+                }
+                content.badge = badge
+            }
+
+            if notificationAlarm {
+                self.playSoundIfNeeded()
+                content.sound = .default
+                content.userInfo[NotificationAction.key] = NotificationAction.snooze.rawValue
+            } else {
+                content.interruptionLevel = .passive
+                content.sound = nil
+            }
+
+            self.addRequest(identifier: .glucocoseNotification, content: content, deleteOld: true)
         }
     }
 

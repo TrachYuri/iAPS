@@ -8,7 +8,6 @@
 
 import Foundation
 import HealthKit
-import UserNotifications
 import os.log
 import UIKit
 

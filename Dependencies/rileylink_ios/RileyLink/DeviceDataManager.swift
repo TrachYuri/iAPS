@@ -15,9 +15,7 @@ import MinimedKitUI
 import NightscoutKit
 import LoopKit
 import LoopKitUI
-import UserNotifications
 import os.log
-import UserNotifications
 
 class DeviceDataManager {
 
