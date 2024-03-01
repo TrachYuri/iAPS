@@ -57,7 +57,7 @@ struct AppGroupSource: GlucoseSource {
                 direction = GlucoseTrend(rawValue: intTrend)?.direction
             }
 
-            guard let direction = direction else { continue }
+            guard let direction else { continue }
 
             if let from = sgv["from"] as? String {
                 guard from == self.from else { continue }

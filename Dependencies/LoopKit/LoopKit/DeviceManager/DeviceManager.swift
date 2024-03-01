@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import UserNotifications
 
 public protocol DeviceManagerDelegate: AlertIssuer, PersistedAlertStore {
     // This will be called from an unspecified queue

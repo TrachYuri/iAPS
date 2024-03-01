@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import UserNotifications
 
 class CompletionViewController: UITableViewController {
 
