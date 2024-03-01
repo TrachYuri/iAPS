@@ -6,8 +6,6 @@
 //
 
 import UIKit
-import UserNotifications
-
 
 class ResetViewController: UITableViewController {
     

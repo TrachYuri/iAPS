@@ -10,7 +10,6 @@ import HealthKit
 import LoopKit
 import RileyLinkKit
 import RileyLinkBLEKit
-import UserNotifications
 import os.log
 
 

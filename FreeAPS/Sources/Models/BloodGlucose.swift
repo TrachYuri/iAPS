@@ -58,6 +58,15 @@ extension Int {
     }
 }
 
+extension Int {
+    var asRoundedMmolL: Double {
+        let value = Double(self) * Double(GlucoseUnits.exchangeRate)
+        let divisor = pow(10.0, Double(1))
+
+        return round(value * divisor) / divisor
+    }
+}
+
 extension Decimal {
     var asMmolL: Decimal {
         self * GlucoseUnits.exchangeRate
