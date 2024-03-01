@@ -10,7 +10,6 @@ import OmniKit
 import ShareClient
 import SwiftDate
 import Swinject
-import UserNotifications
 
 protocol DeviceDataManager: GlucoseSource {
     var pumpManager: PumpManagerUI? { get set }
