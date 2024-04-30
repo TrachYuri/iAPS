@@ -56,6 +56,9 @@ struct FreeAPSSettings: JSON, Equatable {
     var alwaysUseColors: Bool = true
     var timeSettings: Bool = true
     var profilesOrTempTargets: Bool = false
+    var allowBolusShortcut: Bool = false
+    var allowedRemoteBolusAmount: Decimal = 0.0
+    var dontUseBolusCalculator: Bool = false
 }
 
 extension FreeAPSSettings: Decodable {
@@ -287,6 +290,18 @@ extension FreeAPSSettings: Decodable {
 
         if let profilesOrTempTargets = try? container.decode(Bool.self, forKey: .profilesOrTempTargets) {
             settings.profilesOrTempTargets = profilesOrTempTargets
+        }
+
+        if let allowBolusShortcut = try? container.decode(Bool.self, forKey: .allowBolusShortcut) {
+            settings.allowBolusShortcut = allowBolusShortcut
+        }
+
+        if let allowedRemoteBolusAmount = try? container.decode(Decimal.self, forKey: .allowedRemoteBolusAmount) {
+            settings.allowedRemoteBolusAmount = allowedRemoteBolusAmount
+        }
+
+        if let dontUseBolusCalculator = try? container.decode(Bool.self, forKey: .dontUseBolusCalculator) {
+            settings.dontUseBolusCalculator = dontUseBolusCalculator
         }
 
         self = settings
