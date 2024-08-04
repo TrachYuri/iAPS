@@ -153,12 +153,12 @@ public class OmniBLEPumpManager: DeviceManager {
             oldValue = state
             let oldStatusEvaluationDate = state.lastStatusChange
             let oldHighlight = buildPumpStatusHighlight(for: oldValue, andDate: oldStatusEvaluationDate)
-            oldStatus = status(for: oldValue)
+            oldStatus = status(for: oldValue, at: oldStatusEvaluationDate)
 
             returnType = changes(&state)
 
             let newStatusEvaluationDate = Date()
-            let newStatus = status(for: state)
+            let newStatus = status(for: state, at: newStatusEvaluationDate)
             let newHighlight = buildPumpStatusHighlight(for: state, andDate: newStatusEvaluationDate)
 
             if oldStatus != newStatus || oldHighlight != newHighlight {
@@ -301,13 +301,13 @@ extension OmniBLEPumpManager {
         podStateObservers.removeElement(observer)
     }
 
-    private func status(for state: OmniBLEPumpManagerState) -> PumpManagerStatus {
+    private func status(for state: OmniBLEPumpManagerState, at date: Date = Date()) -> PumpManagerStatus {
         return PumpManagerStatus(
             timeZone: state.timeZone,
             device: device(for: state),
             pumpBatteryChargeRemaining: nil,
-            basalDeliveryState: basalDeliveryState(for: state),
-            bolusState: bolusState(for: state),
+            basalDeliveryState: basalDeliveryState(for: state, at: date),
+            bolusState: bolusState(for: state, at: date),
             insulinType: state.insulinType,
             deliveryIsUncertain: state.podState?.needsCommsRecovery == true
         )
@@ -339,7 +339,7 @@ extension OmniBLEPumpManager {
         }
     }
 
-    private func basalDeliveryState(for state: OmniBLEPumpManagerState) -> PumpManagerStatus.BasalDeliveryState {
+    private func basalDeliveryState(for state: OmniBLEPumpManagerState, at date: Date = Date()) -> PumpManagerStatus.BasalDeliveryState {
         guard let podState = state.podState else {
             return .active(.distantPast)
         }
@@ -366,7 +366,7 @@ extension OmniBLEPumpManager {
         case .disengaging:
             return .cancelingTempBasal
         case .stable:
-            if let tempBasal = podState.unfinalizedTempBasal {
+            if let tempBasal = podState.unfinalizedTempBasal, !tempBasal.isFinished(at: date) {
                 return .tempBasal(DoseEntry(tempBasal))
             }
             switch podState.suspendState {
@@ -378,7 +378,7 @@ extension OmniBLEPumpManager {
         }
     }
 
-    private func bolusState(for state: OmniBLEPumpManagerState) -> PumpManagerStatus.BolusState {
+    private func bolusState(for state: OmniBLEPumpManagerState, at date: Date = Date()) -> PumpManagerStatus.BolusState {
         guard let podState = state.podState else {
             return .noBolus
         }
@@ -389,7 +389,7 @@ extension OmniBLEPumpManager {
         case .disengaging:
             return .canceling
         case .stable:
-            if let bolus = podState.unfinalizedBolus {
+            if let bolus = podState.unfinalizedBolus, !bolus.isFinished(at: date) {
                 return .inProgress(DoseEntry(bolus))
             }
         }
@@ -1840,8 +1840,8 @@ extension OmniBLEPumpManager: PumpManager {
                 state.bolusEngageState = .engaging
             })
 
-            if let podState = self.state.podState, podState.isSuspended || podState.lastDeliveryStatusReceived?.suspended != false {
-                self.log.error("enactBolus: returning pod suspended error for bolus")
+            if let podState = self.state.podState, podState.isSuspended || podState.lastDeliveryStatusReceived?.suspended == true {
+                self.log.error("Not enacting bolus because podState or last status received indicates pod is suspended")
                 completion(.deviceState(PodCommsError.podSuspended))
                 return
             }
@@ -1981,8 +1981,8 @@ extension OmniBLEPumpManager: PumpManager {
                 return
             }
 
-            if let podState = self.state.podState, podState.isSuspended || podState.lastDeliveryStatusReceived?.suspended != false {
-                self.log.info("Not enacting temp basal because podState indicates pod is suspended.")
+            if let podState = self.state.podState, podState.isSuspended || podState.lastDeliveryStatusReceived?.suspended == true {
+                self.log.info("Not enacting temp basal because podState or last status received indicates pod is suspended")
                 completion(.deviceState(PodCommsError.podSuspended))
                 return
             }
