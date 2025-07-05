@@ -3,14 +3,14 @@ APP_VERSION = 8.0.4
 APP_BUILD_NUMBER = 1
 COPYRIGHT_NOTICE =
 DEVELOPER_TEAM = ##TEAM_ID##
-BUNDLE_IDENTIFIER = ru.artpancreas.$(DEVELOPMENT_TEAM).FreeAPS
-APP_GROUP_ID = group.com.$(DEVELOPMENT_TEAM).loopkit.LoopGroup
+BUNDLE_IDENTIFIER = ##BUNDLE_IDENTIFIER##
+APP_GROUP_ID = ##APP_GROUP_ID##
 
 //Default App Icon, displayed at first installation.
-APP_ICON = appIcon1
+APP_ICON = ##APP_ICON##
 
 // Require authentication when bolusing.
-AUTHENTICATE = true
+AUTHENTICATE = ##AUTHENTICATE##
 
 // iAPS URL in other apps
 APP_URL_SCHEME = freeaps-x
