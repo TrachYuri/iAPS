@@ -1937,7 +1937,10 @@
 				3818AA48274C267000843DB3 /* Frameworks */,
 				192F0FF5276AC36D0085BE4D /* Recovered References */,
 			);
+			indentWidth = 4;
 			sourceTree = "<group>";
+			tabWidth = 4;
+			usesTabs = 0;
 		};
 		388E595925AD948C0019842D /* Products */ = {
 			isa = PBXGroup;

@@ -905,6 +905,9 @@ Enact a temp Basal or a temp target */
 /* (Snoozed)*/
 "(Snoozed)" = "(Snoozed)";
 
+/* Snooze glucose from notification action */
+"Snooze for %@" = "Snooze for %@";
+
 /* Glucose: %@ */
 "Glucose: %@" = "Glucose: %@";
 

@@ -6,7 +6,9 @@ import Swinject
 import UIKit
 import UserNotifications
 
-protocol UserNotificationsManager {}
+protocol UserNotificationsManager {
+    func registerNotificationsCategories()
+}
 
 enum GlucoseSourceKey: String {
     case transmitterBattery
@@ -18,6 +20,7 @@ enum NotificationAction: String {
     static let key = "action"
 
     case snooze
+    case snoozeInterval = "FreeAPS.glucoseNotification.snooze"
 }
 
 protocol BolusFailureObserver {
@@ -29,8 +32,8 @@ protocol PumpNotificationObserver {
     func pumpRemoveNotification()
 }
 
-final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, Injectable {
-    private enum Identifier: String {
+final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, Injectable, @unchecked Sendable {
+    private enum Identifier: String, CaseIterable {
         case glucocoseNotification = "FreeAPS.glucoseNotification"
         case carbsRequiredNotification = "FreeAPS.carbsRequiredNotification"
         case noLoopFirstNotification = "FreeAPS.noLoopFirstNotification"
@@ -47,6 +50,11 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
     @Injected() private var router: Router!
 
     @Persisted(key: "UserNotificationsManager.snoozeUntilDate") private var snoozeUntilDate: Date = .distantPast
+    @Persisted(key: "UserNotificationsManager.notificationsSnoozeMinutesIntervals") private var snoozeIntervals: [Int] = [
+        30,
+        120,
+        180
+    ]
 
     private let center = UNUserNotificationCenter.current()
     private var lifetime = Lifetime()
@@ -76,7 +84,7 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
     private func addAppBadge(glucose: Int?) {
         guard let glucose = glucose, settingsManager.settings.glucoseBadge else {
             DispatchQueue.main.async {
-                UIApplication.shared.applicationIconBadgeNumber = 0
+                self.center.setBadgeCount(0)
             }
             return
         }
@@ -89,7 +97,7 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
         }
 
         DispatchQueue.main.async {
-            UIApplication.shared.applicationIconBadgeNumber = badge
+            self.center.setBadgeCount(badge)
         }
     }
 
@@ -246,6 +254,7 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
                 let content = UNMutableNotificationContent()
                 content.title = titles.joined(separator: " ")
                 content.body = body
+                content.categoryIdentifier = Identifier.glucocoseNotification.rawValue
 
                 if sound != "Silent", self.settingsManager.settings.useAlarmSound {
                     content.userInfo[NotificationAction.key] = NotificationAction.snooze.rawValue
@@ -314,6 +323,8 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
             debug(.service, "UNUserNotificationCenter.authorizationStatus: \(String(describing: settings.authorizationStatus))")
             if ![.authorized, .provisional].contains(settings.authorizationStatus) {
                 self.requestNotificationPermissions()
+            } else {
+                self.registerNotificationsCategories()
             }
         }
     }
@@ -323,6 +334,7 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
         center.requestAuthorization(options: [.badge, .sound, .alert]) { granted, error in
             if granted {
                 debug(.service, "requestNotificationPermissions was granted")
+                self.registerNotificationsCategories()
             } else {
                 warning(.service, "requestNotificationPermissions failed", error: error)
             }
@@ -342,6 +354,30 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
         }
     }
 
+    func registerNotificationsCategories() {
+        let categories = Identifier.allCases.map { id in
+            let actions: [UNNotificationAction] = if id == .glucocoseNotification {
+                snoozeIntervals.map { interval in
+                    UNNotificationAction(
+                        identifier: "\(NotificationAction.snoozeInterval.rawValue)_\(interval)",
+                        title: String(
+                            format: NSLocalizedString("Snooze for %@", comment: ""),
+                            Formatters.timeFor(minutes: interval)
+                        ),
+                        options: .authenticationRequired
+                    )
+                }
+            } else { [] }
+            return UNNotificationCategory(
+                identifier: id.rawValue,
+                actions: actions,
+                intentIdentifiers: [],
+                options: []
+            )
+        }
+        center.setNotificationCategories(Set(categories))
+    }
+
     private func addRequest(
         identifier: Identifier,
         content: UNMutableNotificationContent,
@@ -359,7 +395,7 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.center.add(request) { error in
-                if let error = error {
+                if let error {
                     warning(.service, "Unable to addNotificationRequest", error: error)
                     return
                 }
@@ -486,13 +522,21 @@ extension BaseUserNotificationsManager: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         defer { completionHandler() }
-        guard let actionRaw = response.notification.request.content.userInfo[NotificationAction.key] as? String,
-              let action = NotificationAction(rawValue: actionRaw)
+        guard let actionRaw = response.notification.request.content.userInfo[NotificationAction.key] as? String
+            ?? response.actionIdentifier.components(separatedBy: "_").first,
+            let action = NotificationAction(rawValue: actionRaw)
         else { return }
 
         switch action {
         case .snooze:
             router.mainModalScreen.send(.snooze)
+        case .snoozeInterval:
+            guard let intervalStr = response.actionIdentifier.components(separatedBy: "_").last,
+                  !intervalStr.isEmpty,
+                  let interval = Double(intervalStr)
+            else { break }
+            let untilDate = Date() + TimeInterval(minutes: interval)
+            snoozeUntilDate = untilDate
         }
     }
 }
