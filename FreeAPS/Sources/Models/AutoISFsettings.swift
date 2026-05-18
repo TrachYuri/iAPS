@@ -2,6 +2,7 @@ import Foundation
 
 struct AutoISFsettings: JSON, Codable {
     var autoisf: Bool = false
+    var autocr: Bool = false
     var smbDeliveryRatioBGrange: Decimal = 0
     var smbDeliveryRatioMin: Decimal = 0.5
     var smbDeliveryRatioMax: Decimal = 0.5
@@ -29,4 +30,5 @@ struct AutoISFsettings: JSON, Codable {
     var ketoProtectAbsolut: Bool = false
     var ketoProtectBasalAbsolut: Decimal = 0
     var id: String = UUID().uuidString
+    var nightTime = NightTimeConfiguration.default
 }

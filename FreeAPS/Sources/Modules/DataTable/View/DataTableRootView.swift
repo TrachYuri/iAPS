@@ -95,6 +95,7 @@ extension DataTable {
                     }
                 }
             }
+            .background(Color(.systemBackground))
             .dynamicTypeSize(...DynamicTypeSize.large)
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.inline)
@@ -353,7 +354,7 @@ extension DataTable {
                         }
 
                         if treatmentToDelete.type == .carbs {
-                            state.deleteCarbs(treatmentToDelete.creationDate)
+                            state.deleteCarbs(treatmentToDelete, storage: filtered(date: treatmentToDelete.creationDate))
                         } else {
                             state.deleteInsulin(treatmentToDelete)
                         }

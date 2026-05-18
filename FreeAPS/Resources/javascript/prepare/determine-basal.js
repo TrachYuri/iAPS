@@ -84,16 +84,22 @@ function generate(iob, currenttemp, glucose, profile, autosens = null, meal = nu
     }
     
     // Dynamic ISF
-    if (profile.useNewFormula) {
+    if (profile.useNewFormula && !isAISFenabled(profile)) {
         dynisf(profile, autosens_data, dynamicVariables, glucose);
     }
     
     var glucose_status = freeaps_glucoseGetLast(glucose)
     
     // Auto ISF
-    if (profile.iaps.autoisf) {
+    if (isAISFenabled(profile) && profile.aisf) {
         autosens_data.ratio = profile.aisf;
         console.log("Auto ISF ratio: " + autosens_data.ratio);
+        
+        if (profile.iaps.autocr) {
+            profile.carb_ratio = round(profile.carb_ratio / profile.aisf, 1);
+            console.log("Auto CR ratio: " + profile.carb_ratio);
+        }
+        
         if (microbolusAllowed && !profile.microbolusAllowed) {
             microbolusAllowed = false;
             console.log("SMBs disabled by Auto ISF layer");
@@ -116,7 +122,7 @@ function dynisf(profile, autosens_data, dynamicVariables, glucose) {
     var dynISFenabled = true;
     
     //Turn off when Auto ISF is used
-    if (profile.iaps.autoisf) {
+    if (isAISFenabled(profile)) {
         console.log("Dynamic ISF disabled due to Auto ISF.");
         return;
     }
@@ -275,4 +281,30 @@ function disableSMBs(dynamicVariables, now) {
         }
     }
     return false
+}
+
+function isAISFenabled(profile) {
+    const dynamicVariables = profile.dynamicVariables || { } ;
+    return (autoisfEffective(profile) && !(dynamicVariables.aisfOverridden && !dynamicVariables.autoISFoverrides.autoisf)) || (dynamicVariables.aisfOverridden && dynamicVariables.autoISFoverrides.autoisf)
+}
+
+function isNighttime(nightTime) {
+    if (!nightTime.enabled) return false;
+
+    const nowDate = new Date();
+    const h = nowDate.getHours();
+    const m = nowDate.getMinutes();
+
+    if (h == null || m == null) return false;
+
+    const now = h * 60 + m;
+    const start = nightTime.startHour * 60 + nightTime.startMinute;
+    const end = nightTime.endHour * 60 + nightTime.endMinute;
+
+    return (start > end && (now >= start || now < end)) ||
+           (start <= end && now >= start && now < end);
+}
+
+function autoisfEffective(profile) {
+    return profile.iaps.autoisf && !isNighttime(profile.iaps.nightTime);
 }

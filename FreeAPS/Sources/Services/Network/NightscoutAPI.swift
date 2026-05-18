@@ -16,8 +16,11 @@ class NightscoutAPI {
         static let treatmentsPath = "/api/v1/treatments.json"
         static let statusPath = "/api/v1/devicestatus.json"
         static let profilePath = "/api/v1/profile.json"
-        static let sharePath = "/upload.php"
-        static let versionPath = "/vcheck.php"
+        static let uploadStatisticsPath = "/api/v1/upload/statistics"
+        static let uploadPreferencesPath = "/api/v1/upload/preferences"
+        static let uploadSettingsPath = "/api/v1/upload/settings"
+        static let uploadProfilesPath = "/api/v1/upload/profiles"
+        static let versionPath = "/api/v1/version_check"
         static let retryCount = 2
         static let timeout: TimeInterval = 60
     }
@@ -522,7 +525,7 @@ extension NightscoutAPI {
         components.scheme = statURL.scheme
         components.host = statURL.host
         components.port = statURL.port
-        components.path = Config.sharePath
+        components.path = Config.uploadStatisticsPath
 
         var request = URLRequest(url: components.url!)
         request.allowsConstrainedNetworkAccess = false
@@ -589,7 +592,7 @@ extension NightscoutAPI {
         components.scheme = statURL.scheme
         components.host = statURL.host
         components.port = statURL.port
-        components.path = Config.sharePath
+        components.path = Config.uploadPreferencesPath
 
         var request = URLRequest(url: components.url!)
         request.allowsConstrainedNetworkAccess = false
@@ -611,7 +614,7 @@ extension NightscoutAPI {
         components.scheme = statURL.scheme
         components.host = statURL.host
         components.port = statURL.port
-        components.path = Config.sharePath
+        components.path = Config.uploadSettingsPath
 
         var request = URLRequest(url: components.url!)
         request.allowsConstrainedNetworkAccess = false
@@ -657,7 +660,7 @@ extension NightscoutAPI {
         components.scheme = statURL.scheme
         components.host = statURL.host
         components.port = statURL.port
-        components.path = Config.sharePath
+        components.path = Config.uploadProfilesPath
 
         var request = URLRequest(url: components.url!)
         request.allowsConstrainedNetworkAccess = false
@@ -693,6 +696,36 @@ extension NightscoutAPI {
 
         return service.run(request)
             .retry(Config.retryCount)
+            .map { _ in () }
+            .eraseToAnyPublisher()
+    }
+
+    /// Upload the previous day's log file (zlib-compressed) to open-iaps.app.
+    func uploadLog(_ logData: Data, logDate: String, appId: String) -> AnyPublisher<Void, Swift.Error> {
+        let statURL = IAPSconfig.statURL
+        var components = URLComponents()
+        components.scheme = statURL.scheme
+        components.host = statURL.host
+        components.port = statURL.port
+        components.path = "/api/v1/upload/logs"
+
+        guard let url = components.url else {
+            return Fail(error: URLError(.badURL)).eraseToAnyPublisher()
+        }
+        guard let compressed = try? (logData as NSData).compressed(using: .zlib) as Data else {
+            return Fail(error: URLError(.cannotCreateFile)).eraseToAnyPublisher()
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 120
+        request.addValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        request.addValue("deflate", forHTTPHeaderField: "Content-Encoding")
+        request.addValue(appId, forHTTPHeaderField: "X-App-Id")
+        request.addValue(logDate, forHTTPHeaderField: "X-Log-Date")
+        request.httpBody = compressed
+
+        return service.run(request)
             .map { _ in () }
             .eraseToAnyPublisher()
     }
