@@ -144,27 +144,15 @@ struct CurrentGlucoseView: View {
 
     private var sageView: some View {
         ZStack {
-            if let date = recentGlucose?.sessionStartDate {
-                let sensorAge: TimeInterval = (-1 * date.timeIntervalSinceNow)
-                let expiration = sensordays - sensorAge
-                let secondsOfDay = 8.64E4
-                let colour = colorScheme == .light ? Color.black : Color.white
-                let lineColour: Color = sensorAge >= sensordays - secondsOfDay * 1 ? Color.red
-                    .opacity(0.9) : sensorAge >= sensordays - secondsOfDay * 2 ? Color
-                    .orange : Color.white
-                let minutesAndHours = (displayExpiration && expiration < 1 * 8.64E4) || (displaySAGE && sensorAge < 1 * 8.64E4)
-
-                Sage(amount: sensorAge, expiration: expiration, lineColour: lineColour, sensordays: sensordays)
+            if let data = sageOverlayData {
+                SageCircularProgress(sensorAge: data.sensorAge, sensorDurationDays: sensordays)
+//                Sage(amount: data.sensorAge, expiration: data.expiration, lineColour: data.lineColour, sensordays: sensordays)
                     .frame(width: 36, height: 36)
                     .overlay {
                         HStack {
-                            Text(
-                                !minutesAndHours ?
-                                    (remainingTimeFormatterDays.string(from: displayExpiration ? expiration : sensorAge) ?? "")
-                                    .replacingOccurrences(of: ",", with: " ") :
-                                    (remainingTimeFormatter.string(from: displayExpiration ? expiration : sensorAge) ?? "")
-                                    .replacingOccurrences(of: ",", with: " ")
-                            ).foregroundStyle(colour).fontWeight(colorScheme == .dark ? .semibold : .regular)
+                            Text(data.text)
+                                .foregroundStyle(data.colour)
+                                .fontWeight(colorScheme == .dark ? .semibold : .regular)
                         }
                     }
             }
@@ -268,4 +256,40 @@ struct CurrentGlucoseView: View {
             return .loopYellow
         }
     }
+
+    private var sageOverlayData: SageOverlayData? {
+        guard let date = recentGlucose?.sessionStartDate
+        else { return nil }
+
+        let secondsInDay: TimeInterval = 8.64E4
+        let sensorDurationSeconds = sensordays * secondsInDay
+        let age = -date.timeIntervalSinceNow
+        let expiration = sensorDurationSeconds - age
+        let expirationsDays = Int(expiration / secondsInDay)
+
+        let lineColour: Color = switch expirationsDays {
+        case ...1: .red.opacity(0.9)
+        case 2: .orange
+        default: .white
+        }
+
+        let valueToFormat = displayExpiration ? expiration : age
+        let formatter = valueToFormat < secondsInDay ? remainingTimeFormatter : remainingTimeFormatterDays
+
+        return SageOverlayData(
+            sensorAge: age,
+            expiration: expiration,
+            lineColour: lineColour,
+            colour: colorScheme == .light ? Color.black : Color.white,
+            text: (formatter.string(from: valueToFormat) ?? "").replacingOccurrences(of: ",", with: " ")
+        )
+    }
+}
+
+private struct SageOverlayData {
+    let sensorAge: TimeInterval
+    let expiration: TimeInterval
+    let lineColour: Color
+    let colour: Color
+    let text: String
 }
