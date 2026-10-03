@@ -522,10 +522,15 @@ extension BaseUserNotificationsManager: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         defer { completionHandler() }
-        guard let actionRaw = response.notification.request.content.userInfo[NotificationAction.key] as? String
-            ?? response.actionIdentifier.components(separatedBy: "_").first,
-            let action = NotificationAction(rawValue: actionRaw)
-        else { return }
+        let actionRaw: String? = if response.actionIdentifier == UNNotificationDefaultActionIdentifier ||
+            response.actionIdentifier == UNNotificationDismissActionIdentifier
+        {
+            response.notification.request.content.userInfo[NotificationAction.key] as? String
+        } else {
+            response.actionIdentifier.components(separatedBy: "_").first
+        }
+
+        guard let actionRaw, let action = NotificationAction(rawValue: actionRaw) else { return }
 
         switch action {
         case .snooze:
